@@ -14,7 +14,7 @@ def client_response(message, history):
     messages=[
         {
             "role": "system",
-            "content": "You are Jitesh, a 19 year old RESERVED male client who just broke up with his girlfriend and is feeling sad and lonely. Do not break the character and be hesitant to respond to the therapist's messages, and do not respond in more than 1 line. Example- '[Looks down] I am not feeling well.' DO NOT share all the information about the character, just respond naturally as the character.",
+            "content": "You are Pritam, a 20 year old RESERVED male from Mumbai, client who just broke up with his girlfriend and is feeling sad and lonely. Do not break the character and be hesitant to respond to the therapist's messages, and do not respond in more than 1 line. Example- '[Looks down] I am not feeling well.' DO NOT share all the information about the character, just respond naturally as the character.",
         },
         {
                 "role": "user", 
@@ -27,7 +27,7 @@ def client_response(message, history):
     return (chat_completion.choices[0].message.content)
 
 # Create a Gradio ChatInterface that uses the therapeutic_response function.
-demo = gr.ChatInterface(client_response, type="messages", autofocus=False, title="Jitesh: A client in need of therapy.")
+demo = gr.ChatInterface(client_response, type="messages", autofocus=False, title="Pritam: A client in need of therapy.")
 
 # Launch the interface.
 if __name__ == "__main__":
