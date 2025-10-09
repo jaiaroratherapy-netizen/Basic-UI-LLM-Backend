@@ -1,0 +1,297 @@
+"""
+AI Therapy Chatbot - FastAPI Backend
+MVP Version - Simple, Clean, Production-Ready Structure
+"""
+
+from typing import Optional, List, Dict
+from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
+from datetime import datetime
+import os
+from groq import Groq
+import uuid
+
+# ============================================
+# Initialize FastAPI App
+# ============================================
+app = FastAPI(title="AI Therapy Chatbot API", version="1.0.0")
+
+# ============================================
+# Initialize Groq Client
+# ============================================
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+
+# ============================================
+# Pydantic Models (Data Blueprints)
+# ============================================
+
+class ChatRequest(BaseModel):
+    """Request model for sending a message"""
+    user_id: str
+    session_id: str
+    message: str
+
+class ChatResponse(BaseModel):
+    """Response model after sending a message"""
+    session_id: str
+    ai_response: str
+    timestamp: str
+
+class NewSessionRequest(BaseModel):
+    """Request model for creating a new session"""
+    user_id: str
+
+class NewSessionResponse(BaseModel):
+    """Response model after creating a new session"""
+    session_id: str
+    session_name: str
+
+class SessionInfo(BaseModel):
+    """Model for session information"""
+    session_id: str
+    session_name: str
+    created_at: str
+    message_count: int
+
+class Message(BaseModel):
+    """Model for a single message"""
+    role: str  # "student" or "ai"
+    content: str
+    timestamp: str
+
+class ConversationResponse(BaseModel):
+    """Response model for full conversation"""
+    session_id: str
+    session_name: str
+    messages: List[Message]
+
+# ============================================
+# In-Memory Storage (Before Database)
+# ============================================
+
+# Structure:
+# {
+#   "user_id": {
+#       "session_id": {
+#           "name": "Session-1",
+#           "created_at": "2025-10-09 10:00:00",
+#           "messages": [
+#               {"role": "student", "content": "...", "timestamp": "..."},
+#               {"role": "ai", "content": "...", "timestamp": "..."}
+#           ]
+#       }
+#   }
+# }
+sessions_storage: Dict[str, Dict[str, dict]] = {}
+
+# Pritam's system prompt (from your original code)
+PRITAM_SYSTEM_PROMPT = """You are Pritam, a 20 year old RESERVED male from Mumbai, client who just broke up with his girlfriend and is feeling sad and lonely. Do not break the character and be hesitant to respond to the therapist's messages, and do not respond in more than 1 line. Example- '[Looks down] I am not feeling well.' DO NOT share all the information about the character, just respond naturally as the character."""
+
+# ============================================
+# Helper Functions
+# ============================================
+
+def get_current_timestamp() -> str:
+    """Get current timestamp as string"""
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def ensure_user_exists(user_id: str):
+    """Create user entry if doesn't exist"""
+    if user_id not in sessions_storage:
+        sessions_storage[user_id] = {}
+
+def get_session(user_id: str, session_id: str) -> dict:
+    """Get a specific session, raise 404 if not found"""
+    ensure_user_exists(user_id)
+    
+    if session_id not in sessions_storage[user_id]:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+    
+    return sessions_storage[user_id][session_id]
+
+# ============================================
+# API Endpoints
+# ============================================
+
+@app.get("/")
+def root():
+    """Health check endpoint"""
+    return {
+        "message": "AI Therapy Chatbot API is running!",
+        "version": "1.0.0",
+        "status": "healthy"
+    }
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(request: ChatRequest):
+    """
+    Main chat endpoint - Send message and get AI response
+    
+    Flow:
+    1. Validate session exists
+    2. Retrieve full conversation history
+    3. Build messages array with system prompt + history + new message
+    4. Call Groq API
+    5. Save both student message and AI response
+    6. Return AI response
+    """
+    
+    # Get or create session
+    ensure_user_exists(request.user_id)
+    
+    # If session doesn't exist, create it (first message in session)
+    if request.session_id not in sessions_storage[request.user_id]:
+        session_count = len(sessions_storage[request.user_id]) + 1
+        sessions_storage[request.user_id][request.session_id] = {
+            "name": f"Session-{session_count}",
+            "created_at": get_current_timestamp(),
+            "messages": []
+        }
+    
+    session = sessions_storage[request.user_id][request.session_id]
+    
+    # Build messages for Groq API (system prompt + full history + current message)
+    groq_messages = [
+        {"role": "system", "content": PRITAM_SYSTEM_PROMPT}
+    ]
+    
+    # Add conversation history
+    for msg in session["messages"]:
+        groq_messages.append({
+            "role": "user" if msg["role"] == "student" else "assistant",
+            "content": msg["content"]
+        })
+    
+    # Add current message
+    groq_messages.append({
+        "role": "user",
+        "content": request.message
+    })
+    
+    # Call Groq API (using your original code logic)
+    try:
+        chat_completion = groq_client.chat.completions.create(
+            messages=groq_messages,
+            model="llama-3.3-70b-versatile",
+        )
+        ai_response = chat_completion.choices[0].message.content
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Groq API error: {str(e)}")
+    
+    # Get timestamp
+    timestamp = get_current_timestamp()
+    
+    # Save student message
+    session["messages"].append({
+        "role": "student",
+        "content": request.message,
+        "timestamp": timestamp
+    })
+    
+    # Save AI response
+    session["messages"].append({
+        "role": "ai",
+        "content": ai_response,
+        "timestamp": timestamp
+    })
+    
+    # Return response
+    return ChatResponse(
+        session_id=request.session_id,
+        ai_response=ai_response,
+        timestamp=timestamp
+    )
+
+@app.post("/sessions/new", response_model=NewSessionResponse)
+def create_new_session(request: NewSessionRequest):
+    """
+    Create a new chat session for a user
+    
+    Flow:
+    1. Ensure user exists
+    2. Generate unique session ID
+    3. Count existing sessions to name new one
+    4. Create empty session
+    5. Return session details
+    """
+    
+    ensure_user_exists(request.user_id)
+    
+    # Generate unique session ID
+    session_id = f"sess_{uuid.uuid4().hex[:8]}"
+    
+    # Count existing sessions for naming
+    session_count = len(sessions_storage[request.user_id]) + 1
+    session_name = f"Session-{session_count}"
+    
+    # Create new session
+    sessions_storage[request.user_id][session_id] = {
+        "name": session_name,
+        "created_at": get_current_timestamp(),
+        "messages": []
+    }
+    
+    return NewSessionResponse(
+        session_id=session_id,
+        session_name=session_name
+    )
+
+@app.get("/users/{user_id}/sessions", response_model=List[SessionInfo])
+def get_user_sessions(user_id: str):
+    """
+    Get all sessions for a user (for sidebar display)
+    
+    Returns list of sessions with metadata
+    """
+    
+    ensure_user_exists(user_id)
+    
+    sessions_list = []
+    
+    for session_id, session_data in sessions_storage[user_id].items():
+        sessions_list.append(SessionInfo(
+            session_id=session_id,
+            session_name=session_data["name"],
+            created_at=session_data["created_at"],
+            message_count=len(session_data["messages"])
+        ))
+    
+    # Sort by creation time (newest first)
+    sessions_list.sort(key=lambda x: x.created_at, reverse=True)
+    
+    return sessions_list
+
+@app.get("/conversations/{session_id}", response_model=ConversationResponse)
+def get_conversation(session_id: str, user_id: str):
+    """
+    Get full conversation for a specific session
+    
+    Used when user clicks on a past session in sidebar
+    Query param: user_id (to verify ownership)
+    """
+    
+    session = get_session(user_id, session_id)
+    
+    # Convert messages to response model
+    messages = [
+        Message(
+            role=msg["role"],
+            content=msg["content"],
+            timestamp=msg["timestamp"]
+        )
+        for msg in session["messages"]
+    ]
+    
+    return ConversationResponse(
+        session_id=session_id,
+        session_name=session["name"],
+        messages=messages
+    )
+
+# ============================================
+# Run Server
+# ============================================
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
