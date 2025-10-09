@@ -1,0 +1,310 @@
+# **All 5 Endpoints We're Using - Complete List**
+
+Let me show you all endpoints, how to test them, and what they do.
+
+---
+
+## **Endpoint 1: Root / Health Check**
+
+### **Details:**
+- **Method:** GET
+- **URL:** `http://localhost:8000/`
+- **Purpose:** Check if backend server is alive
+
+### **How to Test:**
+**In browser, go to:**
+```
+http://localhost:8000/
+```
+
+**Expected Response:**
+```json
+{
+  "message": "AI Therapy Chatbot API is running!",
+  "version": "1.0.0",
+  "status": "healthy"
+}
+```
+
+**If you see this:** ✅ Backend is running!
+
+---
+
+## **Endpoint 2: Send Chat Message (CREATE)**
+
+### **Details:**
+- **Method:** POST
+- **URL:** `http://localhost:8000/chat`
+- **Purpose:** Student sends message, gets AI (Pritam) response
+
+### **Request Format:**
+```json
+{
+  "user_id": "john_doe",
+  "session_id": "sess_abc123",
+  "message": "How are you feeling?"
+}
+```
+
+### **Response Format:**
+```json
+{
+  "session_id": "sess_abc123",
+  "ai_response": "[Looks down] Not great...",
+  "timestamp": "2025-10-09 10:05:23"
+}
+```
+
+### **How to Test:**
+**This endpoint is used automatically when you chat in the Gradio UI.**
+
+**Manual test (advanced - using curl):**
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"test","session_id":"sess_001","message":"Hi"}'
+```
+
+---
+
+## **Endpoint 3: Create New Session (CREATE)**
+
+### **Details:**
+- **Method:** POST
+- **URL:** `http://localhost:8000/sessions/new`
+- **Purpose:** Create a new chat session (when user clicks "New Chat")
+
+### **Request Format:**
+```json
+{
+  "user_id": "john_doe"
+}
+```
+
+### **Response Format:**
+```json
+{
+  "session_id": "sess_a1b2c3d4",
+  "session_name": "Session-1"
+}
+```
+
+### **How to Test:**
+**This endpoint is called when you:**
+1. Login for the first time (creates Session-1 automatically)
+2. Click "➕ New Chat" button
+
+**Manual test:**
+```bash
+curl -X POST http://localhost:8000/sessions/new \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"test_user"}'
+```
+
+---
+
+## **Endpoint 4: Get User's Sessions List (READ)**
+
+### **Details:**
+- **Method:** GET
+- **URL:** `http://localhost:8000/users/{user_id}/sessions`
+- **Purpose:** Get list of all sessions for sidebar display
+
+### **Example URL:**
+```
+http://localhost:8000/users/john_doe/sessions
+```
+
+### **Response Format:**
+```json
+[
+  {
+    "session_id": "sess_abc123",
+    "session_name": "Session-1",
+    "created_at": "2025-10-09 10:00:00",
+    "message_count": 10
+  },
+  {
+    "session_id": "sess_def456",
+    "session_name": "Session-2",
+    "created_at": "2025-10-09 11:00:00",
+    "message_count": 5
+  }
+]
+```
+
+### **How to Test:**
+**In browser (after you've created some sessions):**
+```
+http://localhost:8000/users/john_doe/sessions
+```
+
+Replace `john_doe` with whatever name you logged in with.
+
+**This endpoint is used when:**
+- You login (populates sidebar)
+- You click "🔄 Refresh Sessions"
+
+---
+
+## **Endpoint 5: Get Full Conversation (READ)**
+
+### **Details:**
+- **Method:** GET
+- **URL:** `http://localhost:8000/conversations/{session_id}?user_id={user_id}`
+- **Purpose:** Get all messages from a specific session
+
+### **Example URL:**
+```
+http://localhost:8000/conversations/sess_abc123?user_id=john_doe
+```
+
+### **Response Format:**
+```json
+{
+  "session_id": "sess_abc123",
+  "session_name": "Session-1",
+  "messages": [
+    {
+      "role": "student",
+      "content": "How are you feeling?",
+      "timestamp": "2025-10-09 10:05:23"
+    },
+    {
+      "role": "ai",
+      "content": "[Looks down] Not great...",
+      "timestamp": "2025-10-09 10:05:23"
+    },
+    {
+      "role": "student",
+      "content": "Can you tell me more?",
+      "timestamp": "2025-10-09 10:06:15"
+    },
+    {
+      "role": "ai",
+      "content": "My girlfriend... she left me...",
+      "timestamp": "2025-10-09 10:06:15"
+    }
+  ]
+}
+```
+
+### **How to Test:**
+**This endpoint is used when you click on a past session in the sidebar.**
+
+**In browser (after you've had a conversation):**
+```
+http://localhost:8000/conversations/sess_abc123?user_id=john_doe
+```
+
+---
+
+## **Summary Table**
+
+| # | Endpoint | Method | Purpose | When Used |
+|---|----------|--------|---------|-----------|
+| 1 | `/` | GET | Health check | Testing backend is alive |
+| 2 | `/chat` | POST | Send message, get AI response | Every time user sends message |
+| 3 | `/sessions/new` | POST | Create new session | Login + "New Chat" button |
+| 4 | `/users/{user_id}/sessions` | GET | Get session list | Populate sidebar |
+| 5 | `/conversations/{session_id}` | GET | Get full conversation | Click past session in sidebar |
+
+---
+
+## **How to Test ALL Endpoints (Step by Step)**
+
+### **Step 1: Test Backend is Running**
+
+**In browser:**
+```
+http://localhost:8000/
+```
+
+**Expected:** JSON with "AI Therapy Chatbot API is running!"
+
+**If this works:** ✅ Backend is alive!
+
+---
+
+### **Step 2: Test API Documentation**
+
+**In browser:**
+```
+http://localhost:8000/docs
+```
+
+**Expected:** Swagger UI page showing all 5 endpoints
+
+**This is cool!** You can test endpoints directly from this page.
+
+---
+
+### **Step 3: Test Through Gradio UI (Easiest)**
+
+**In browser:**
+```
+http://localhost:7860
+```
+
+**Then:**
+
+1. **Login** → Tests Endpoint #3 (creates session)
+2. **Type message** → Tests Endpoint #2 (chat)
+3. **Click "New Chat"** → Tests Endpoint #3 (creates session)
+4. **Sidebar shows sessions** → Tests Endpoint #4 (lists sessions)
+5. **Click past session** → Tests Endpoint #5 (loads conversation)
+
+**If all of the above work in UI:** ✅ All endpoints working!
+
+---
+
+## **Visual Flow - How Endpoints Connect**
+
+```
+User Login
+    ↓
+Endpoint #3: Create first session → Returns session_id
+    ↓
+Endpoint #4: Get sessions list → Populates sidebar
+    ↓
+User Types Message
+    ↓
+Endpoint #2: Send chat message → Returns AI response
+    ↓
+User Clicks "New Chat"
+    ↓
+Endpoint #3: Create new session → Returns new session_id
+    ↓
+Endpoint #4: Refresh sessions list → Updates sidebar
+    ↓
+User Clicks Past Session
+    ↓
+Endpoint #5: Get conversation → Loads all messages
+```
+
+---
+
+## **Quick Test Checklist**
+
+**Do these in order:**
+
+### **✅ Backend Tests:**
+- [ ] Go to `http://localhost:8000/` → See JSON response
+- [ ] Go to `http://localhost:8000/docs` → See Swagger UI
+
+### **✅ Frontend Tests:**
+- [ ] Go to `http://localhost:7860` → See login screen
+- [ ] Enter name → Click "Start Practicing" → See chat screen
+- [ ] Type "Hi" → Send → See Pritam's response
+- [ ] Click "New Chat" → Chat clears, sidebar updates
+- [ ] Click "Session-1" in sidebar → Old conversation loads
+
+**If all checkboxes pass:** 🎉 Everything is working perfectly!
+
+---
+
+**Now tell me:**
+1. Can you access `http://localhost:8000/` in browser?
+2. What do you see?
+
+Let's test endpoint by endpoint!
