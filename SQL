@@ -1,0 +1,287 @@
+-- =====================================================
+-- CHAT SYSTEM DATABASE SCHEMA
+-- =====================================================
+-- Database: chat_system
+-- DBMS: PostgreSQL (compatible with most SQL databases)
+-- Description: Stores students, sessions, and messages
+-- =====================================================
+
+-- Create database (run this separately if needed)
+-- CREATE DATABASE chat_system;
+-- \c chat_system;
+
+-- Enable UUID extension (PostgreSQL specific)
+--CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- =====================================================
+-- TABLE 1: STUDENTS
+-- =====================================================
+-- Description: Stores information about students/users
+-- Primary Key: student_id
+-- =====================================================
+
+CREATE TABLE students (
+    -- Primary Key
+    student_id      SERIAL PRIMARY KEY,
+    
+    -- Unique identifier (email)
+    email           VARCHAR(255) NOT NULL UNIQUE,
+    
+    -- Student information
+    name            VARCHAR(255),
+    
+    -- Timestamps
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login      TIMESTAMP,
+    
+    -- Constraints
+    CONSTRAINT email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
+);
+
+-- Create index on email for faster lookups
+CREATE INDEX idx_students_email ON students(email);
+
+-- Add comment to table
+COMMENT ON TABLE students IS 'Stores student/user information';
+COMMENT ON COLUMN students.student_id IS 'Auto-incrementing primary key';
+COMMENT ON COLUMN students.email IS 'Unique email address, used for login';
+COMMENT ON COLUMN students.created_at IS 'Account creation timestamp';
+COMMENT ON COLUMN students.last_login IS 'Last login timestamp';
+
+-- =====================================================
+-- TABLE 2: SESSIONS
+-- =====================================================
+-- Description: Stores conversation sessions between students and AI clients
+-- Primary Key: session_id (UUID)
+-- Foreign Key: student_id → students(student_id)
+-- =====================================================
+
+CREATE TABLE sessions (
+    -- Primary Key (UUID for global uniqueness)
+    session_id      UUID PRIMARY KEY,
+    
+    -- Foreign Key to students table
+    student_id      INTEGER NOT NULL,
+    
+    -- AI client information
+    ai_client_type  VARCHAR(50) NOT NULL,
+    
+    -- Timestamps
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Session status
+    status          VARCHAR(20) DEFAULT 'active',
+    
+    -- Foreign Key Constraint
+    CONSTRAINT fk_student
+        FOREIGN KEY (student_id) 
+        REFERENCES students(student_id)
+        ON DELETE CASCADE           -- Delete sessions when student is deleted
+        ON UPDATE CASCADE,          -- Update if student_id changes
+    
+    -- Check Constraints
+    CONSTRAINT status_check 
+        CHECK (status IN ('active', 'closed'))
+);
+
+-- Create indexes for faster queries
+CREATE INDEX idx_sessions_student_id ON sessions(student_id);
+CREATE INDEX idx_sessions_status ON sessions(status);
+CREATE INDEX idx_sessions_created_at ON sessions(created_at);
+
+-- Add comments
+COMMENT ON TABLE sessions IS 'Stores conversation sessions between students and AI clients';
+COMMENT ON COLUMN sessions.session_id IS 'UUID primary key for global uniqueness';
+COMMENT ON COLUMN sessions.student_id IS 'Foreign key linking to students table';
+COMMENT ON COLUMN sessions.ai_client_type IS 'Type of AI client (e.g., Jitesh, Professor Oak)';
+COMMENT ON COLUMN sessions.status IS 'Session status: active or closed';
+
+-- =====================================================
+-- TABLE 3: MESSAGES
+-- =====================================================
+-- Description: Stores individual messages within sessions
+-- Primary Key: message_id
+-- Foreign Key: session_id → sessions(session_id)
+-- =====================================================
+
+CREATE TABLE messages (
+    -- Primary Key
+    message_id      SERIAL PRIMARY KEY,
+    
+    -- Foreign Key to sessions table
+    session_id      UUID NOT NULL,
+    
+    -- Message metadata
+    sender_type     VARCHAR(20) NOT NULL,
+    
+    -- Message content
+    content         TEXT NOT NULL,
+    
+    -- Sequence number (order within conversation)
+    sequence_number INTEGER NOT NULL,
+    
+    -- Timestamp
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Foreign Key Constraint
+    CONSTRAINT fk_session
+        FOREIGN KEY (session_id) 
+        REFERENCES sessions(session_id)
+        ON DELETE CASCADE           -- Delete messages when session is deleted
+        ON UPDATE CASCADE,          -- Update if session_id changes
+    
+    -- Check Constraints
+    CONSTRAINT sender_type_check 
+        CHECK (sender_type IN ('user', 'assistant')),
+    
+    CONSTRAINT sequence_positive 
+        CHECK (sequence_number > 0),
+    
+    -- Unique constraint: No duplicate sequence numbers in same session
+    CONSTRAINT unique_session_sequence 
+        UNIQUE (session_id, sequence_number)
+);
+
+-- Create indexes for faster queries
+CREATE INDEX idx_messages_session_id ON messages(session_id);
+CREATE INDEX idx_messages_created_at ON messages(created_at);
+CREATE INDEX idx_messages_sender_type ON messages(sender_type);
+
+-- Composite index for common query pattern
+CREATE INDEX idx_messages_session_sequence ON messages(session_id, sequence_number);
+
+-- Add comments
+COMMENT ON TABLE messages IS 'Stores individual messages within conversation sessions';
+COMMENT ON COLUMN messages.message_id IS 'Auto-incrementing primary key';
+COMMENT ON COLUMN messages.session_id IS 'Foreign key linking to sessions table';
+COMMENT ON COLUMN messages.sender_type IS 'Message sender: user or assistant';
+COMMENT ON COLUMN messages.content IS 'Actual message content (unlimited length)';
+COMMENT ON COLUMN messages.sequence_number IS 'Order of message within the session';
+
+-- =====================================================
+-- TRIGGERS
+-- =====================================================
+-- Auto-update updated_at timestamp in sessions table
+-- =====================================================
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_sessions_updated_at
+    BEFORE UPDATE ON sessions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- =====================================================
+-- SAMPLE DATA (for testing)
+-- =====================================================
+
+-- Insert sample students
+INSERT INTO students (email, name, created_at) VALUES
+    ('jai@gmail.com', 'Jai Arora', '2024-10-10 09:00:00'),
+    ('priya@gmail.com', 'Priya Sharma', '2024-10-10 09:15:00'),
+    ('rahul@gmail.com', 'Rahul Kumar', '2024-10-10 09:30:00'),
+    ('ananya@gmail.com', 'Ananya Desai', '2024-10-10 10:00:00'),
+    ('vikram@gmail.com', 'Vikram Singh', '2024-10-10 10:15:00');
+
+-- Insert sample sessions
+INSERT INTO sessions (session_id, student_id, ai_client_type, created_at, status) VALUES
+    ('aaa11111-1111-1111-1111-111111111111', 1, 'Jitesh', '2024-10-10 10:30:00', 'active'),
+    ('aaa22222-2222-2222-2222-222222222222', 1, 'Professor Oak', '2024-10-10 10:35:00', 'active'),
+    ('bbb11111-1111-1111-1111-111111111111', 2, 'Jitesh', '2024-10-10 10:31:00', 'active'),
+    ('bbb22222-2222-2222-2222-222222222222', 2, 'Professor Oak', '2024-10-10 10:40:00', 'active'),
+    ('ccc11111-1111-1111-1111-111111111111', 3, 'Jitesh', '2024-10-10 10:32:00', 'closed');
+
+-- Insert sample messages
+INSERT INTO messages (session_id, sender_type, content, sequence_number, created_at) VALUES
+    -- Jai's conversation with Jitesh
+    ('aaa11111-1111-1111-1111-111111111111', 'user', 'Hello Jitesh!', 1, '2024-10-10 10:30:05'),
+    ('aaa11111-1111-1111-1111-111111111111', 'assistant', 'Hi Jai! How are you?', 2, '2024-10-10 10:30:08'),
+    ('aaa11111-1111-1111-1111-111111111111', 'user', 'I am good, thanks!', 3, '2024-10-10 10:31:10'),
+    ('aaa11111-1111-1111-1111-111111111111', 'assistant', 'Great! What brings you here today?', 4, '2024-10-10 10:32:05'),
+    
+    -- Jai's conversation with Professor Oak
+    ('aaa22222-2222-2222-2222-222222222222', 'user', 'Hi Professor Oak', 1, '2024-10-10 10:35:00'),
+    ('aaa22222-2222-2222-2222-222222222222', 'assistant', 'Hello Jai! Ready to learn?', 2, '2024-10-10 10:35:03'),
+    ('aaa22222-2222-2222-2222-222222222222', 'user', 'Teach me about normalization', 3, '2024-10-10 10:36:30'),
+    
+    -- Priya's conversation with Jitesh
+    ('bbb11111-1111-1111-1111-111111111111', 'user', 'Hey, what''s up?', 1, '2024-10-10 10:31:02'),
+    ('bbb11111-1111-1111-1111-111111111111', 'assistant', 'Hey Priya! Not much, how can I help?', 2, '2024-10-10 10:31:15'),
+    ('bbb11111-1111-1111-1111-111111111111', 'user', 'Explain foreign keys please', 3, '2024-10-10 10:33:20'),
+    ('bbb11111-1111-1111-1111-111111111111', 'assistant', 'Foreign keys link tables together...', 4, '2024-10-10 10:35:10'),
+    
+    -- Rahul's conversation with Jitesh
+    ('ccc11111-1111-1111-1111-111111111111', 'user', 'Can you help with databases?', 1, '2024-10-10 10:32:01'),
+    ('ccc11111-1111-1111-1111-111111111111', 'assistant', 'Sure Rahul! What do you need to know?', 2, '2024-10-10 10:32:08'),
+    ('ccc11111-1111-1111-1111-111111111111', 'user', 'What''s a primary key?', 3, '2024-10-10 10:34:15'),
+    ('ccc11111-1111-1111-1111-111111111111', 'assistant', 'Primary key uniquely identifies each row', 4, '2024-10-10 10:35:15');
+
+-- =====================================================
+-- USEFUL QUERIES (for reference)
+-- =====================================================
+
+-- Query 1: Get all sessions for a specific student
+-- SELECT s.session_id, s.ai_client_type, s.created_at, s.status
+-- FROM sessions s
+-- JOIN students st ON s.student_id = st.student_id
+-- WHERE st.email = 'jai@gmail.com';
+
+-- Query 2: Get all messages for a specific session (ordered by sequence)
+-- SELECT m.sender_type, m.content, m.created_at
+-- FROM messages m
+-- WHERE m.session_id = 'aaa11111-1111-1111-1111-111111111111'
+-- ORDER BY m.sequence_number;
+
+-- Query 3: Get message count per student
+-- SELECT st.name, COUNT(m.message_id) as message_count
+-- FROM students st
+-- JOIN sessions s ON st.student_id = s.student_id
+-- JOIN messages m ON s.session_id = m.session_id
+-- WHERE m.sender_type = 'user'
+-- GROUP BY st.student_id, st.name;
+
+-- Query 4: Get most recent session for each student
+-- SELECT DISTINCT ON (st.student_id) 
+--     st.name, s.ai_client_type, s.created_at
+-- FROM students st
+-- JOIN sessions s ON st.student_id = s.student_id
+-- ORDER BY st.student_id, s.created_at DESC;
+
+-- Query 5: Get last message in each active session
+-- SELECT s.session_id, st.name, m.content, m.created_at
+-- FROM sessions s
+-- JOIN students st ON s.student_id = st.student_id
+-- JOIN messages m ON s.session_id = m.session_id
+-- WHERE s.status = 'active'
+--   AND m.message_id IN (
+--       SELECT MAX(message_id)
+--       FROM messages
+--       GROUP BY session_id
+--   );
+
+-- =====================================================
+-- VERIFICATION QUERIES
+-- =====================================================
+
+-- Check table structures
+-- \d students
+-- \d sessions
+-- \d messages
+
+-- Count records
+-- SELECT 'students' as table_name, COUNT(*) as count FROM students
+-- UNION ALL
+-- SELECT 'sessions', COUNT(*) FROM sessions
+-- UNION ALL
+-- SELECT 'messages', COUNT(*) FROM messages;
+
+-- =====================================================
+-- END OF SCHEMA
+-- =====================================================
