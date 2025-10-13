@@ -1,0 +1,211 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900">
+  <!-- Define styles -->
+  <defs>
+    <style>
+      .entity-box { fill: #E3F2FD; stroke: #1976D2; stroke-width: 3; }
+      .attribute-oval { fill: #FFF9C4; stroke: #F57C00; stroke-width: 2; }
+      .pk-attribute { fill: #FFE0B2; stroke: #E65100; stroke-width: 2.5; }
+      .fk-attribute { fill: #C8E6C9; stroke: #388E3C; stroke-width: 2; }
+      .relationship-diamond { fill: #F3E5F5; stroke: #7B1FA2; stroke-width: 2.5; }
+      .text { font-family: Arial, sans-serif; font-size: 14px; fill: #000; }
+      .text-bold { font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; fill: #000; }
+      .text-small { font-family: Arial, sans-serif; font-size: 12px; fill: #555; }
+      .cardinality { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; fill: #D32F2F; }
+      .line { stroke: #424242; stroke-width: 2; fill: none; }
+      .pk-underline { stroke: #000; stroke-width: 1.5; }
+    </style>
+    
+    <!-- Arrow marker -->
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#424242" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="700" y="30" class="text-bold" style="font-size: 24px; text-anchor: middle;">
+    ER DIAGRAM - Chat System Database
+  </text>
+
+  <!-- =========== ENTITY 1: STUDENT =========== -->
+  <g id="student-entity">
+    <!-- Entity Box -->
+    <rect x="100" y="200" width="250" height="60" rx="5" class="entity-box"/>
+    <text x="225" y="235" class="text-bold" text-anchor="middle">STUDENT</text>
+    
+    <!-- Attributes -->
+    <!-- student_id (PK) -->
+    <ellipse cx="225" cy="100" rx="70" ry="30" class="pk-attribute"/>
+    <text x="225" y="100" class="text" text-anchor="middle">student_id</text>
+    <line x1="225" y1="105" x2="225" y2="105" class="pk-underline" stroke-dasharray="140,0" stroke-width="1.5" transform="translate(-70, 0)"/>
+    <text x="225" y="118" class="text-small" text-anchor="middle">(PK)</text>
+    
+    <!-- email -->
+    <ellipse cx="80" cy="170" rx="60" ry="25" class="attribute-oval"/>
+    <text x="80" y="173" class="text" text-anchor="middle">email</text>
+    <text x="80" y="188" class="text-small" text-anchor="middle">(UNIQUE)</text>
+    
+    <!-- name -->
+    <ellipse cx="370" cy="170" rx="50" ry="25" class="attribute-oval"/>
+    <text x="370" y="177" class="text" text-anchor="middle">name</text>
+    
+    <!-- created_at -->
+    <ellipse cx="80" cy="290" rx="60" ry="25" class="attribute-oval"/>
+    <text x="80" y="295" class="text" text-anchor="middle">created_at</text>
+    
+    <!-- last_login -->
+    <ellipse cx="370" cy="290" rx="60" ry="25" class="attribute-oval"/>
+    <text x="370" y="295" class="text" text-anchor="middle">last_login</text>
+    
+    <!-- Connect attributes to entity -->
+    <line x1="225" y1="130" x2="225" y2="200" class="line"/>
+    <line x1="120" y1="180" x2="150" y2="215" class="line"/>
+    <line x1="330" y1="180" x2="300" y2="215" class="line"/>
+    <line x1="120" y1="280" x2="150" y2="245" class="line"/>
+    <line x1="330" y1="280" x2="300" y2="245" class="line"/>
+  </g>
+
+  <!-- =========== RELATIONSHIP 1: HAS =========== -->
+  <g id="relationship-has">
+    <line x1="350" y1="230" x2="550" y2="230" class="line"/>
+    
+    <!-- Diamond -->
+    <polygon points="550,230 600,200 650,230 600,260" class="relationship-diamond"/>
+    <text x="600" y="235" class="text-bold" text-anchor="middle">HAS</text>
+    
+    <!-- Cardinality -->
+    <text x="380" y="220" class="cardinality">1</text>
+    <text x="680" y="220" class="cardinality">M</text>
+    
+    <line x1="650" y1="230" x2="850" y2="230" class="line"/>
+  </g>
+
+  <!-- =========== ENTITY 2: SESSION =========== -->
+  <g id="session-entity">
+    <!-- Entity Box -->
+    <rect x="850" y="200" width="250" height="60" rx="5" class="entity-box"/>
+    <text x="975" y="235" class="text-bold" text-anchor="middle">SESSION</text>
+    
+    <!-- Attributes -->
+    <!-- session_id (PK) -->
+    <ellipse cx="975" cy="100" rx="70" ry="30" class="pk-attribute"/>
+    <text x="975" y="100" class="text" text-anchor="middle">session_id</text>
+    <line x1="975" y1="105" x2="975" y2="105" class="pk-underline" stroke-dasharray="140,0" stroke-width="1.5" transform="translate(-70, 0)"/>
+    <text x="975" y="118" class="text-small" text-anchor="middle">(PK, UUID)</text>
+    
+    <!-- student_id (FK) -->
+    <ellipse cx="800" cy="170" rx="65" ry="25" class="fk-attribute"/>
+    <text x="800" y="173" class="text" text-anchor="middle">student_id</text>
+    <text x="800" y="188" class="text-small" text-anchor="middle">(FK)</text>
+    
+    <!-- ai_client_type -->
+    <ellipse cx="1150" cy="170" rx="80" ry="25" class="attribute-oval"/>
+    <text x="1150" y="177" class="text" text-anchor="middle">ai_client_type</text>
+    
+    <!-- created_at -->
+    <ellipse cx="800" cy="320" rx="60" ry="25" class="attribute-oval"/>
+    <text x="800" y="325" class="text" text-anchor="middle">created_at</text>
+    
+    <!-- updated_at -->
+    <ellipse cx="975" cy="350" rx="60" ry="25" class="attribute-oval"/>
+    <text x="975" y="355" class="text" text-anchor="middle">updated_at</text>
+    
+    <!-- status -->
+    <ellipse cx="1150" cy="320" rx="50" ry="25" class="attribute-oval"/>
+    <text x="1150" y="325" class="text" text-anchor="middle">status</text>
+    
+    <!-- Connect attributes to entity -->
+    <line x1="975" y1="130" x2="975" y2="200" class="line"/>
+    <line x1="840" y1="180" x2="900" y2="215" class="line"/>
+    <line x1="1110" y1="180" x2="1050" y2="215" class="line"/>
+    <line x1="840" y1="310" x2="900" y2="245" class="line"/>
+    <line x1="975" y1="325" x2="975" y2="260" class="line"/>
+    <line x1="1110" y1="310" x2="1050" y2="245" class="line"/>
+  </g>
+
+  <!-- =========== RELATIONSHIP 2: CONTAINS =========== -->
+  <g id="relationship-contains">
+    <line x1="975" y1="260" x2="975" y2="450" class="line"/>
+    
+    <!-- Diamond -->
+    <polygon points="975,450 1025,480 975,510 925,480" class="relationship-diamond"/>
+    <text x="975" y="490" class="text-bold" text-anchor="middle">CONTAINS</text>
+    
+    <!-- Cardinality -->
+    <text x="990" y="300" class="cardinality">1</text>
+    <text x="990" y="570" class="cardinality">M</text>
+    
+    <line x1="975" y1="510" x2="975" y2="600" class="line"/>
+  </g>
+
+  <!-- =========== ENTITY 3: MESSAGE =========== -->
+  <g id="message-entity">
+    <!-- Entity Box -->
+    <rect x="850" y="600" width="250" height="60" rx="5" class="entity-box"/>
+    <text x="975" y="635" class="text-bold" text-anchor="middle">MESSAGE</text>
+    
+    <!-- Attributes -->
+    <!-- message_id (PK) -->
+    <ellipse cx="800" cy="700" rx="70" ry="30" class="pk-attribute"/>
+    <text x="800" y="700" class="text" text-anchor="middle">message_id</text>
+    <line x1="800" y1="705" x2="800" y2="705" class="pk-underline" stroke-dasharray="140,0" stroke-width="1.5" transform="translate(-70, 0)"/>
+    <text x="800" y="718" class="text-small" text-anchor="middle">(PK)</text>
+    
+    <!-- session_id (FK) -->
+    <ellipse cx="1150" cy="700" rx="65" ry="25" class="fk-attribute"/>
+    <text x="1150" y="703" class="text" text-anchor="middle">session_id</text>
+    <text x="1150" y="718" class="text-small" text-anchor="middle">(FK)</text>
+    
+    <!-- sender_type -->
+    <ellipse cx="730" cy="770" rx="70" ry="25" class="attribute-oval"/>
+    <text x="730" y="775" class="text" text-anchor="middle">sender_type</text>
+    
+    <!-- content -->
+    <ellipse cx="900" cy="790" rx="55" ry="25" class="attribute-oval"/>
+    <text x="900" y="795" class="text" text-anchor="middle">content</text>
+    
+    <!-- sequence_number -->
+    <ellipse cx="1060" cy="790" rx="95" ry="25" class="attribute-oval"/>
+    <text x="1060" y="795" class="text" text-anchor="middle">sequence_number</text>
+    
+    <!-- created_at -->
+    <ellipse cx="1210" cy="770" rx="60" ry="25" class="attribute-oval"/>
+    <text x="1210" y="775" class="text" text-anchor="middle">created_at</text>
+    
+    <!-- Connect attributes to entity -->
+    <line x1="840" y1="685" x2="870" y2="655" class="line"/>
+    <line x1="1110" y1="685" x2="1080" y2="655" class="line"/>
+    <line x1="780" y1="760" x2="870" y2="645" class="line"/>
+    <line x1="920" y1="770" x2="940" y2="650" class="line"/>
+    <line x1="1010" y1="770" x2="1010" y2="650" class="line"/>
+    <line x1="1180" y1="760" x2="1080" y2="645" class="line"/>
+  </g>
+
+  <!-- Legend -->
+  <g id="legend" transform="translate(100, 820)">
+    <text x="0" y="0" class="text-bold">LEGEND:</text>
+    
+    <rect x="0" y="10" width="40" height="25" rx="3" class="pk-attribute"/>
+    <text x="50" y="27" class="text-small">Primary Key (PK)</text>
+    
+    <rect x="200" y="10" width="40" height="25" rx="3" class="fk-attribute"/>
+    <text x="250" y="27" class="text-small">Foreign Key (FK)</text>
+    
+    <rect x="400" y="10" width="40" height="25" rx="3" class="attribute-oval"/>
+    <text x="450" y="27" class="text-small">Regular Attribute</text>
+    
+    <rect x="620" y="10" width="60" height="25" rx="3" class="entity-box"/>
+    <text x="690" y="27" class="text-small">Entity</text>
+    
+    <polygon points="850,22 870,10 890,22 870,34" class="relationship-diamond"/>
+    <text x="900" y="27" class="text-small">Relationship</text>
+    
+    <text x="1050" y="27" class="text-small" style="font-weight: bold; fill: #D32F2F;">1 : M = Cardinality (One to Many)</text>
+  </g>
+
+  <!-- Notes -->
+  <g id="notes">
+    <text x="700" y="870" class="text-small" text-anchor="middle" style="font-style: italic;">
+      CASCADE: Deleting a Student deletes their Sessions; Deleting a Session deletes its Messages
+    </text>
+  </g>
+</svg>
