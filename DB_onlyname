@@ -1,0 +1,241 @@
+"""
+AI Therapy Chatbot - FastAPI Backend
+Connected to Supabase PostgreSQL Database
+"""
+
+from typing import Optional, List, Dict
+from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
+from datetime import datetime
+import os
+from groq import Groq
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Import our database functions
+from database import (
+    get_or_create_student,
+    create_session,
+    save_message,
+    get_conversation_history,
+    get_user_sessions,
+    session_exists,
+    get_session_name,
+    test_connection
+)
+
+# ============================================
+# Initialize FastAPI App
+# ============================================
+app = FastAPI(title="AI Therapy Chatbot API", version="2.0.0")
+
+# ============================================
+# Initialize Groq Client
+# ============================================
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+
+# ============================================
+# Pritam's System Prompt
+# ============================================
+PRITAM_SYSTEM_PROMPT = """You are Pritam, a 20 year old RESERVED male from Mumbai, client who just broke up with his girlfriend and is feeling sad and lonely. Do not break the character and be hesitant to respond to the therapist's messages, and do not respond in more than 1 line. Example- '[Looks down] I am not feeling well.' DO NOT share all the information about the character, just respond naturally as the character."""
+
+# ============================================
+# Pydantic Models
+# ============================================
+
+class ChatRequest(BaseModel):
+    user_id: str  # Email
+    session_id: str
+    message: str
+
+class ChatResponse(BaseModel):
+    session_id: str
+    ai_response: str
+    timestamp: str
+
+class NewSessionRequest(BaseModel):
+    user_id: str  # Email
+
+class NewSessionResponse(BaseModel):
+    session_id: str
+    session_name: str
+
+class SessionInfo(BaseModel):
+    session_id: str
+    session_name: str
+    created_at: str
+    message_count: int
+
+class Message(BaseModel):
+    role: str
+    content: str
+    timestamp: str
+
+class ConversationResponse(BaseModel):
+    session_id: str
+    session_name: str
+    messages: List[Message]
+
+# ============================================
+# API Endpoints
+# ============================================
+
+@app.get("/")
+def root():
+    """Health check endpoint"""
+    return {
+        "message": "AI Therapy Chatbot API is running with Supabase!",
+        "version": "2.0.0",
+        "status": "healthy",
+        "database": "connected"
+    }
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(request: ChatRequest):
+    """
+    Main chat endpoint - Send message and get AI response
+    Now saves to Supabase database
+    """
+    
+    # Validate session exists
+    if not session_exists(request.session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Get conversation history from database
+    history = get_conversation_history(request.session_id)
+    
+    # Build messages for Groq API
+    groq_messages = [{"role": "system", "content": PRITAM_SYSTEM_PROMPT}]
+    
+    # Add conversation history
+    for msg in history:
+        groq_messages.append({
+            "role": "user" if msg["role"] == "user" else "assistant",
+            "content": msg["content"]
+        })
+    
+    # Add current message
+    groq_messages.append({"role": "user", "content": request.message})
+    
+    # Call Groq API
+    try:
+        chat_completion = groq_client.chat.completions.create(
+            messages=groq_messages,
+            model="llama-3.3-70b-versatile",
+        )
+        ai_response = chat_completion.choices[0].message.content
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Groq API error: {str(e)}")
+    
+    # Save both messages to database
+    save_message(request.session_id, "user", request.message)
+    save_message(request.session_id, "assistant", ai_response)
+    
+    # Return response
+    return ChatResponse(
+        session_id=request.session_id,
+        ai_response=ai_response,
+        timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    )
+
+@app.post("/sessions/new", response_model=NewSessionResponse)
+def create_new_session(request: NewSessionRequest):
+    """
+    Create a new chat session for a user
+    Now saves to Supabase database
+    """
+    
+    # Get or create student (using email as user_id)
+    # Extract name from email (before @)
+    name = request.user_id.split('@')[0].replace('_', ' ').replace('.', ' ').title()
+    
+    student_id = get_or_create_student(
+        email=request.user_id,
+        name=name
+    )
+    
+    # Create new session
+    session_id, session_name = create_session(student_id, "Pritam")
+    
+    return NewSessionResponse(
+        session_id=session_id,
+        session_name=session_name
+    )
+
+@app.get("/users/{user_id}/sessions", response_model=List[SessionInfo])
+def get_sessions_for_user(user_id: str):
+    """
+    Get all sessions for a user
+    Now retrieves from Supabase database
+    """
+    
+    sessions = get_user_sessions(user_id)
+    
+    return [
+        SessionInfo(
+            session_id=s["session_id"],
+            session_name=s["session_name"],
+            created_at=s["created_at"],
+            message_count=s["message_count"]
+        )
+        for s in sessions
+    ]
+
+@app.get("/conversations/{session_id}", response_model=ConversationResponse)
+def get_conversation(session_id: str, user_id: str):
+    """
+    Get full conversation for a specific session
+    Now retrieves from Supabase database
+    """
+    
+    # Validate session exists
+    if not session_exists(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Get session name
+    session_name = get_session_name(session_id, user_id)
+    
+    if not session_name:
+        raise HTTPException(status_code=404, detail="Session not found for this user")
+    
+    # Get messages
+    messages = get_conversation_history(session_id)
+    
+    # Convert to response model
+    message_list = [
+        Message(
+            role="student" if msg["role"] == "user" else "ai",
+            content=msg["content"],
+            timestamp=msg["timestamp"]
+        )
+        for msg in messages
+    ]
+    
+    return ConversationResponse(
+        session_id=session_id,
+        session_name=session_name,
+        messages=message_list
+    )
+
+# ============================================
+# Startup Event
+# ============================================
+
+@app.on_event("startup")
+async def startup_event():
+    """Test database connection on startup"""
+    print("=" * 50)
+    print("🚀 Starting AI Therapy Chatbot API")
+    print("=" * 50)
+    test_connection()
+    print("=" * 50)
+
+# ============================================
+# Run Server
+# ============================================
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
